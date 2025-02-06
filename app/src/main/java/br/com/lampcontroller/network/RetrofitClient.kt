@@ -2,16 +2,17 @@ package br.com.lampcontroller.network
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.scalars.ScalarsConverterFactory
 
 object RetrofitClient {
-    private const val BASE_URL = "http://ip_do_esp_aqui/"
+    // Trocar pra o IP do ESP
+    private const val BASE_URL = "http://SEU_IP_DO_ESP32/"
 
     val instance: Esp32Api by lazy {
-        val retrofit = Retrofit.Builder()
+        Retrofit.Builder()
             .baseUrl(BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(ScalarsConverterFactory.create())
             .build()
-
-        retrofit.create(Esp32Api::class.java)
+            .create(Esp32Api::class.java)
     }
 }

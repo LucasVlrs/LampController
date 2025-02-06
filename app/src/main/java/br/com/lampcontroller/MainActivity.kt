@@ -1,6 +1,7 @@
 package br.com.lampcontroller
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import br.com.lampcontroller.databinding.ActivityMainBinding
 import br.com.lampcontroller.network.RetrofitClient
@@ -14,9 +15,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
         binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
+        setupClickListeners()
+        getStatus()
+    }
+
+    private fun setupClickListeners() {
         binding.buttonOn.setOnClickListener {
             controlLed("on")
         }
@@ -24,18 +30,18 @@ class MainActivity : AppCompatActivity() {
         binding.buttonOff.setOnClickListener {
             controlLed("off")
         }
-
-        getStatus()
     }
 
     private fun getStatus() {
         RetrofitClient.instance.getStatus().enqueue(object : Callback<String> {
             override fun onResponse(call: Call<String>, response: Response<String>) {
-                binding.statusLampada.text = response.body() ?: "No response"
+                response.body()?.let {
+                    binding.statusLampada.text = "Status: $it"
+                }
             }
 
             override fun onFailure(call: Call<String>, t: Throwable) {
-                binding.statusLampada.text = "Error: ${t.message}"
+                showError("Falha ao obter status: ${t.message}")
             }
         })
     }
@@ -43,13 +49,21 @@ class MainActivity : AppCompatActivity() {
     private fun controlLed(state: String) {
         RetrofitClient.instance.controlLed(state).enqueue(object : Callback<String> {
             override fun onResponse(call: Call<String>, response: Response<String>) {
-                binding.statusLampada.text = response.body() ?: "No response"
+                response.body()?.let {
+                    binding.statusLampada.text = "Status: $it"
+                    Toast.makeText(this@MainActivity, "Sucesso!", Toast.LENGTH_SHORT).show()
+                }
             }
 
             override fun onFailure(call: Call<String>, t: Throwable) {
-                binding.statusLampada.text = "Error: ${t.message}"
+                showError("Falha ao controlar LED: ${t.message}")
             }
         })
+    }
+
+    private fun showError(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        binding.statusLampada.text = "Erro!"
     }
 }
 
@@ -57,39 +71,44 @@ class MainActivity : AppCompatActivity() {
 #include <WiFi.h>
 #include <WebServer.h>
 
-const char* ssid = "nome_da_rede";
-const char* password = "senha_da_rede";
+const char* ssid = "SUA_REDE_WIFI"; // por o nome da rede certa
+const char* password = "SUA_SENHA_WIFI"; // por a senha certa da rede
 
+#define LED_PIN 2  // Trocar pra o pino certo
 WebServer server(80);
 
 void setup() {
-  Serial.begin(115200);
-  WiFi.begin(ssid, password);
+Serial.begin(115200);
+pinMode(LED_PIN, OUTPUT);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi...");
-  }
+WiFi.begin(ssid, password);
 
-  Serial.println("Connected to WiFi");
-  server.on("/", []() {
-    server.send(200, "text/plain", "Sucesso!");
-  });
+while (WiFi.status() != WL_CONNECTED) {
+delay(1000);
+Serial.println("Conectando ao WiFi...");
+}
 
-  server.on("/led", []() {
-    String state = server.arg("state");
-    if (state == "on") {
-      // Liga o led
-    } else if (state == "off") {
-      // Desliga o led
-    }
-    server.send(200, "text/plain", "LED State Changed");
-  });
+Serial.print("IP do ESP32: ");
+Serial.println(WiFi.localIP());
 
-  server.begin();
+server.on("/", []() {
+server.send(200, "text/plain", digitalRead(LED_PIN) ? "on" : "off");
+});
+
+server.on("/led", []() {
+String state = server.arg("state");
+if (state == "on") {
+digitalWrite(LED_PIN, HIGH);
+} else if (state == "off") {
+digitalWrite(LED_PIN, LOW);
+}
+server.send(200, "text/plain", digitalRead(LED_PIN) ? "on" : "off");
+});
+
+server.begin();
 }
 
 void loop() {
-  server.handleClient();
+server.handleClient();
 }
 * */
